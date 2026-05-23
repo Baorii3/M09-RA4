@@ -6,35 +6,43 @@ public class Servidor {
     public static final String HOST = "localhost";
     private ServerSocket serverSocket;
 
-    public void connectar() throws IOException {
+    public Socket connectar() throws IOException {
         serverSocket = new ServerSocket(PORT);
         System.out.println("Acceptant connexions en -> " + HOST + ":" + PORT);
-    }
-
-    public Socket accepta() throws IOException {
         System.out.println("Esperant connexio...");
         Socket s = serverSocket.accept();
         System.out.println("Connexio acceptada: " + s.getRemoteSocketAddress());
         return s;
     }
 
-    public void rebreFitxers(Socket s) {
-        try (ObjectInputStream ois = new ObjectInputStream(s.getInputStream())) {
+    public void enviarFitxers(Socket s) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
+             ObjectInputStream ois = new ObjectInputStream(s.getInputStream())) {
+            oos.flush();
+
+            System.out.println("Esperant el nom del fitxer del client...");
             Object obj = ois.readObject();
-            if (obj instanceof Fitxer) {
-                Fitxer f = (Fitxer) obj;
-                System.out.println("Nom del fitxer rebut: " + f.getNom());
-                byte[] data = f.getContingut();
-                File dir = new File("received");
-                dir.mkdirs();
-                File out = new File(dir, f.getNom());
-                try (FileOutputStream fos = new FileOutputStream(out)) {
-                    fos.write(data);
-                }
-                System.out.println("Fitxer rebut i guardat com: " + out.getPath());
-            } else {
-                System.out.println("Objecte inesperat: " + obj);
+            if (!(obj instanceof String) || obj == null || ((String) obj).isBlank()) {
+                System.out.println("Nom del fitxer buit o nul. Sortint...");
+                return;
             }
+
+            String rutaFitxer = (String) obj;
+            System.out.println("Nomfitxer rebut: " + rutaFitxer);
+
+            File fitxer = new File(rutaFitxer);
+            if (!fitxer.exists() || !fitxer.isFile()) {
+                System.out.println("Fitxer no trobat: " + rutaFitxer);
+                oos.writeObject(null);
+                oos.flush();
+                return;
+            }
+
+            Fitxer f = new Fitxer(rutaFitxer);
+            System.out.println("Contingut del fitxer a enviar: " + f.getContingut().length + " bytes");
+            oos.writeObject(f.getContingut());
+            oos.flush();
+            System.out.println("Fitxer enviat al client: " + rutaFitxer);
         } catch (Exception e) {
             System.out.println("Error llegint el fitxer del client: " + e.getMessage());
             e.printStackTrace();
@@ -50,13 +58,12 @@ public class Servidor {
 
     public static void main(String[] args) throws Exception {
         Servidor srv = new Servidor();
-        srv.connectar();
+        Socket s = srv.connectar();
         try {
-            Socket s = srv.accepta();
-            srv.rebreFitxers(s);
-            srv.tancarConnexio(s);
-            System.out.println("Connexio tancada amb el client: " + (s.getRemoteSocketAddress()));
+            srv.enviarFitxers(s);
         } finally {
+            srv.tancarConnexio(s);
+            System.out.println("Tancant connexio amb el client: " + (s.getRemoteSocketAddress()));
             if (srv.serverSocket != null) srv.serverSocket.close();
         }
     }

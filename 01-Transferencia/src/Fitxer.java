@@ -24,4 +24,14 @@ public class Fitxer implements Serializable {
     public byte[] getContingut() {
         return contingut;
     }
+
+    public void guardarA(File desti) throws IOException {
+        File pare = desti.getParentFile();
+        if (pare != null) {
+            pare.mkdirs();
+        }
+        try (FileOutputStream fos = new FileOutputStream(desti)) {
+            fos.write(contingut);
+        }
+    }
 }
