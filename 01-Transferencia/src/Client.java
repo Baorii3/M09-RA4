@@ -21,38 +21,46 @@ public class Client {
 
     public void rebreFitxers() {
         try (Scanner sc = new Scanner(System.in)) {
-            System.out.print("Nom del fitxer a rebre ('sortir' per sortir): ");
-            String rutaFitxer = sc.nextLine();
-            if (rutaFitxer == null || rutaFitxer.isBlank()) {
-                System.out.println("Nom del fitxer buit o nul. Sortint...");
-                return;
+            while (true) {
+                System.out.print("Nom del fitxer a rebre ('sortir' per sortir): ");
+                String rutaFitxer = sc.nextLine();
+                if (rutaFitxer == null) {
+                    System.out.println("Nom del fitxer nul. Sortint...");
+                    break;
+                }
+
+                if (rutaFitxer.isBlank()) {
+                    System.out.println("Nom del fitxer buit. Torna a intentar.");
+                    continue;
+                }
+
+                sortida.writeObject(rutaFitxer);
+                sortida.flush();
+
+                if ("sortir".equalsIgnoreCase(rutaFitxer)) {
+                    System.out.println("Sortint...");
+                    break;
+                }
+
+                System.out.println("Nom del fitxer a guardar: " + rutaFitxer);
+
+                Object obj = entrada.readObject();
+                if (!(obj instanceof byte[])) {
+                    System.out.println("No s'ha rebut cap fitxer.");
+                    continue;
+                }
+
+                byte[] contingut = (byte[]) obj;
+                File directori = new File(DIR_ARRIBADA);
+                directori.mkdirs();
+                File desti = new File(directori, new File(rutaFitxer).getName());
+
+                try (FileOutputStream fos = new FileOutputStream(desti)) {
+                    fos.write(contingut);
+                }
+
+                System.out.println("Fitxer rebut i guardat com: " + desti.getPath());
             }
-
-            if ("sortir".equalsIgnoreCase(rutaFitxer)) {
-                System.out.println("Sortint...");
-                return;
-            }
-
-            sortida.writeObject(rutaFitxer);
-            sortida.flush();
-            System.out.println("Nom del fitxer a guardar: " + rutaFitxer);
-
-            Object obj = entrada.readObject();
-            if (!(obj instanceof byte[])) {
-                System.out.println("No s'ha rebut cap fitxer.");
-                return;
-            }
-
-            byte[] contingut = (byte[]) obj;
-            File directori = new File(DIR_ARRIBADA);
-            directori.mkdirs();
-            File desti = new File(directori, new File(rutaFitxer).getName());
-
-            try (FileOutputStream fos = new FileOutputStream(desti)) {
-                fos.write(contingut);
-            }
-
-            System.out.println("Fitxer rebut i guardat com: " + desti.getPath());
         } catch (Exception e) {
             System.out.println("Error rebent fitxer: " + e.getMessage());
             e.printStackTrace();

@@ -16,33 +16,54 @@ public class Servidor {
     }
 
     public void enviarFitxers(Socket s) {
-        try (ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
-             ObjectInputStream ois = new ObjectInputStream(s.getInputStream())) {
-            oos.flush();
+        try (ObjectOutputStream sortida = new ObjectOutputStream(s.getOutputStream());
+             ObjectInputStream entrada = new ObjectInputStream(s.getInputStream())) {
+            sortida.flush();
 
             System.out.println("Esperant el nom del fitxer del client...");
-            Object obj = ois.readObject();
-            if (!(obj instanceof String) || obj == null || ((String) obj).isBlank()) {
-                System.out.println("Nom del fitxer buit o nul. Sortint...");
-                return;
+            while (true) {
+                Object missatge = entrada.readObject();
+                if (missatge == null) {
+                    System.out.println("Client ha tancat la connexio.");
+                    break;
+                }
+
+                if (!(missatge instanceof String)) {
+                    System.out.println("Rebut objecte no vàlid. Enviant null.");
+                    sortida.writeObject(null);
+                    sortida.flush();
+                    continue;
+                }
+
+                String rutaFitxer = (String) missatge;
+                if (rutaFitxer.isBlank()) {
+                    System.out.println("Nom del fitxer buit. Ignorant...");
+                    sortida.writeObject(null);
+                    sortida.flush();
+                    continue;
+                }
+
+                if (rutaFitxer.equalsIgnoreCase("sortir")) {
+                    System.out.println("Client ha demanat sortir. Tancant connexio...");
+                    break;
+                }
+
+                System.out.println("Nomfitxer rebut: " + rutaFitxer);
+
+                File fitxer = new File(rutaFitxer);
+                if (!fitxer.exists() || !fitxer.isFile()) {
+                    System.out.println("Fitxer no trobat: " + rutaFitxer);
+                    sortida.writeObject(null);
+                    sortida.flush();
+                    continue;
+                }
+
+                Fitxer fitxerAEnviar = new Fitxer(rutaFitxer);
+                System.out.println("Contingut del fitxer a enviar: " + fitxerAEnviar.getContingut().length + " bytes");
+                sortida.writeObject(fitxerAEnviar.getContingut());
+                sortida.flush();
+                System.out.println("Fitxer enviat al client: " + rutaFitxer);
             }
-
-            String rutaFitxer = (String) obj;
-            System.out.println("Nomfitxer rebut: " + rutaFitxer);
-
-            File fitxer = new File(rutaFitxer);
-            if (!fitxer.exists() || !fitxer.isFile()) {
-                System.out.println("Fitxer no trobat: " + rutaFitxer);
-                oos.writeObject(null);
-                oos.flush();
-                return;
-            }
-
-            Fitxer f = new Fitxer(rutaFitxer);
-            System.out.println("Contingut del fitxer a enviar: " + f.getContingut().length + " bytes");
-            oos.writeObject(f.getContingut());
-            oos.flush();
-            System.out.println("Fitxer enviat al client: " + rutaFitxer);
         } catch (Exception e) {
             System.out.println("Error llegint el fitxer del client: " + e.getMessage());
             e.printStackTrace();
@@ -58,13 +79,18 @@ public class Servidor {
 
     public static void main(String[] args) throws Exception {
         Servidor srv = new Servidor();
-        Socket s = srv.connectar();
-        try {
-            srv.enviarFitxers(s);
-        } finally {
-            srv.tancarConnexio(s);
-            System.out.println("Tancant connexio amb el client: " + (s.getRemoteSocketAddress()));
-            if (srv.serverSocket != null) srv.serverSocket.close();
+        srv.serverSocket = new ServerSocket(PORT);
+        System.out.println("Acceptant connexions en -> " + HOST + ":" + PORT);
+        System.out.println("Esperant connexions...");
+        while (true) {
+            Socket s = srv.serverSocket.accept();
+            System.out.println("Connexio acceptada: " + s.getRemoteSocketAddress());
+            try {
+                srv.enviarFitxers(s);
+            } finally {
+                srv.tancarConnexio(s);
+                System.out.println("Tancant connexio amb el client: " + (s.getRemoteSocketAddress()));
+            }
         }
     }
 }
