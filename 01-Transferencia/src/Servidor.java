@@ -23,7 +23,7 @@ public class Servidor {
             Object obj = ois.readObject();
             if (obj instanceof Fitxer) {
                 Fitxer f = (Fitxer) obj;
-                System.out.println("Nomfitxer rebut: " + f.getNom());
+                System.out.println("Nom del fitxer rebut: " + f.getNom());
                 byte[] data = f.getContingut();
                 File dir = new File("received");
                 dir.mkdirs();
